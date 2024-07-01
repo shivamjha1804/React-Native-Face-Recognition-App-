@@ -265,19 +265,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-
-  bound: ({width, height, x, y}) => {
-    return {
-      position: 'absolute',
-      top: y,
-      left: x,
-      width: width,
-      height: height,
-      borderWidth: 5,
-      borderColor: 'red',
-      zIndex: 3000,
-    };
-  },
 });
 
 export default FaceRecognition;
