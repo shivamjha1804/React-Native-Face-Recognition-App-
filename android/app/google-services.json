@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "794264639811",
+    "project_id": "face-verification-872d7",
+    "storage_bucket": "face-verification-872d7.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:794264639811:android:edaf2d7e7c4e67e87637f6",
+        "android_client_info": {
+          "package_name": "com.faceverification"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmyHZ5zlDoAChTekeNV01er6e52iglbc8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
