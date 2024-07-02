@@ -181,7 +181,7 @@ const FaceRecognition = () => {
                   // trackingEnabled: true,
                 }}
                 // fps={1}
-                // photo={true}
+                photo={true}
               />
 
               {face ? <Animated.View style={animatedStyle} /> : null}

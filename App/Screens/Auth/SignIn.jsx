@@ -19,6 +19,7 @@ const SignIn = () => {
   const handleLogin = () => {
     // You can perform your login logic here
     // dispatch(setUser({email}));
+    NavigationService.navigate('FaceRecognation');
   };
 
   return (

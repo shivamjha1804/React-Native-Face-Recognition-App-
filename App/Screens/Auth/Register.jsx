@@ -54,7 +54,7 @@ const Register = () => {
 
     // Perform registration logic here
     // dispatch(setUser({firstName, lastName, email}));
-    NavigationService.navigate('FaceRecognation');
+    NavigationService.navigate('UploadImage');
   };
 
   return (
