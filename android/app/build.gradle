@@ -112,7 +112,7 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation ("com.google.mlkit:face-detection") // Example, use the latest version
+    implementation ("com.google.mlkit:face-detection:16.1.6") // Example, use the latest version
 
     implementation project(':react-native-vision-camera')
     // implementation project(':vision-camera-face-detector')

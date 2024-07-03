@@ -1,25 +1,21 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
-  Image,
-  StatusBar,
-  TouchableOpacity,
   View,
-  StyleSheet,
   Text,
-  Alert,
+  TouchableOpacity,
+  StyleSheet,
   PermissionsAndroid,
 } from 'react-native';
-import {Container} from 'react-native-basic-elements';
 import {RNCamera} from 'react-native-camera';
-import {moderateScale} from '../../Constants/PixelRatio';
-import firebase from '@react-native-firebase/app';
-import ml from '@react-native-firebase/ml';
 
 const FaceRecognition = () => {
-  const [isRecognizing, setIsRecognizing] = useState(false);
+  const [hasPermission, setHasPermission] = useState(null);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [cameraType, setCameraType] = useState(RNCamera.Constants.Type.front); // Set initial camera type to front
+  const [isLiveFace, setIsLiveFace] = useState(false); // Flag to track live face detection
   const cameraRef = useRef(null);
-  const [startRecognition, setStartRecognition] = useState(false);
-  const [box, setBox] = useState(null);
+  const lastFace = useRef(null);
+  const lastDetectionTime = useRef(0);
 
   useEffect(() => {
     checkCameraPermission();
@@ -40,96 +36,108 @@ const FaceRecognition = () => {
       );
       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
         console.log('Camera permission granted');
+        setHasPermission(true);
       } else {
         console.log('Camera permission denied');
+        setHasPermission(false);
       }
     } catch (err) {
       console.warn(err);
     }
   };
 
-  const handleRecognitionStart = async () => {
-    setIsRecognizing(true);
-  };
+  const handleFacesDetected = ({faces}) => {
+    if (faces.length > 0 && faces[0].faceID) {
+      const face = faces[0];
 
-  const handlerFace = ({faces}) => {
-    try {
-      if (faces && faces.length > 0) {
-        const face = faces[0];
-        setBox({
-          boxs: {
-            width: face.bounds.size.width,
-            height: face.bounds.size.height,
-            x: face.bounds.origin.x,
-            y: face.bounds.origin.y,
-            yawAngle: face.yawAngle,
-            rollAngle: face.rollAngle,
-          },
-          rightEyePosition: face.rightEyePosition,
-          leftEyePosition: face.leftEyePosition,
-          bottomMouthPosition: face.bottomMouthPosition,
-        });
+      // Detect blinking
+      const isBlinking =
+        face.leftEyeOpenProbability < 0.5 || face.rightEyeOpenProbability < 0.5;
+
+      // Detect head movement
+      const isMoving = detectHeadMovement(face);
+
+      // Compare face characteristics to determine if it resembles an image
+      const isImageLike = face.smilingProbability < 0.1 && face.rollAngle < -20; // Adjust thresholds as needed
+
+      if (isBlinking || isMoving || isImageLike) {
+        setFaceDetected(true);
+        setIsLiveFace(true); // Set live face flag
+        console.log('Faces detected:', faces);
       } else {
-        setBox(null);
+        setFaceDetected(false);
+        setIsLiveFace(false); // Reset live face flag
       }
-    } catch (error) {
-      console.error('Error in handlerFace:', error);
-      setBox(null); // Reset state or handle error gracefully
+
+      lastFace.current = face;
+      lastDetectionTime.current = Date.now();
+    } else {
+      setFaceDetected(false);
+      setIsLiveFace(false); // Reset live face flag
     }
   };
 
-  return (
-    <Container style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#3e3e42" />
+  const detectHeadMovement = face => {
+    // Example: Compare current face position with previous position
+    if (
+      lastFace.current &&
+      Math.abs(face.bounds.origin.x - lastFace.current.bounds.origin.x) > 20 &&
+      Date.now() - lastDetectionTime.current < 1000
+    ) {
+      return true;
+    }
+    return false;
+  };
 
-      {startRecognition ? (
+  const switchCameraType = () => {
+    setCameraType(
+      cameraType === RNCamera.Constants.Type.front
+        ? RNCamera.Constants.Type.back
+        : RNCamera.Constants.Type.front,
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {hasPermission === null ? (
+        <Text>Requesting camera permission...</Text>
+      ) : hasPermission === false ? (
+        <Text>Camera permission denied</Text>
+      ) : (
         <>
           <RNCamera
             ref={cameraRef}
-            style={styles.cameraPreview}
-            type={RNCamera.Constants.Type.front}
-            captureAudio={false}
-            onFacesDetected={handlerFace}
-            faceDetectionClassifications={'all'}
-            faceDetectionMode={'fast'}
-            faceDetectionLandmarks={'all'}
+            style={styles.camera}
+            type={cameraType}
+            onFacesDetected={handleFacesDetected}
+            faceDetectionClassifications={
+              RNCamera.Constants.FaceDetection.Classifications.all
+            }
+            faceDetectionLandmarks={
+              RNCamera.Constants.FaceDetection.Landmarks.all
+            }
+            faceDetectionMode={RNCamera.Constants.FaceDetection.Mode.accurate}
+            captureAudio={false} // Ensure audio capture is disabled to avoid background noise interference
           />
-          {box && (
-            <>
-              <View
-                style={styles.bound({
-                  width: box.boxs.width,
-                  height: box.boxs.height,
-                  x: box.boxs.x,
-                  y: box.boxs.y,
-                })}
-              />
-            </>
-          )}
-        </>
-      ) : (
-        <TouchableOpacity
-          style={styles.formContainer}
-          onPress={() => setStartRecognition(true)}>
-          <Image
-            source={require('../../Assets/FaceIcon/smiley.png')}
-            style={styles.faceIcon}
-          />
-          <Text style={styles.faceIconText}>Face Recognition</Text>
-        </TouchableOpacity>
-      )}
 
-      {startRecognition && (
-        <TouchableOpacity
-          style={styles.recognizeButton}
-          onPress={handleRecognitionStart}
-          disabled={isRecognizing}>
-          <Text style={styles.buttonText}>
-            {isRecognizing ? 'Recognizing...' : 'Start Recognition'}
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.faceDetectionIndicator}>
+            {faceDetected && isLiveFace ? (
+              <Text style={styles.faceDetectionText}>Live Face Detected</Text>
+            ) : (
+              <Text style={styles.faceDetectionText}>
+                No Live Face Detected
+              </Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.switchCameraButton}
+            onPress={switchCameraType}>
+            <Text style={styles.buttonText}>Switch Camera</Text>
+          </TouchableOpacity>
+        </>
       )}
-    </Container>
+    </View>
   );
 };
 
@@ -138,64 +146,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#3e3e42',
+    backgroundColor: 'black',
   },
-  cameraPreview: {
+  camera: {
+    flex: 1,
     width: '100%',
-    height: '100%',
+  },
+  faceDetectionIndicator: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: 1,
-  },
-  formContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: moderateScale(20),
-    backgroundColor: '#F8F9F9',
-    borderRadius: moderateScale(10),
-    elevation: 1,
-    opacity: 0.85,
-    zIndex: 2,
-  },
-  faceIcon: {
-    height: moderateScale(60),
-    width: moderateScale(60),
-    resizeMode: 'contain',
-    marginHorizontal: moderateScale(10),
-    marginVertical: moderateScale(10),
-  },
-  faceIconText: {
-    color: '#1F51FF',
-    fontSize: moderateScale(12),
-    fontWeight: 'bold',
-  },
-  recognizeButton: {
-    position: 'absolute',
-    bottom: 50,
-    backgroundColor: '#1F51FF',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    bottom: 16,
+    left: 16,
+    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 8,
-    zIndex: 2,
+  },
+  faceDetectionText: {
+    color: 'white',
+    fontSize: 18,
+  },
+  switchCameraButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 12,
+    backgroundColor: '#007bff',
+    borderRadius: 8,
   },
   buttonText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-
-  bound: ({width, height, x, y}) => {
-    return {
-      position: 'absolute',
-      top: y,
-      left: x,
-      width: width,
-      height: height,
-      borderWidth: 5,
-      borderColor: 'red',
-      zIndex: 3000,
-    };
+    fontSize: 16,
   },
 });
 
