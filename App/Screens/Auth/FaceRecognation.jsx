@@ -1,3 +1,9 @@
+import {
+  Face,
+  Camera,
+  FaceDetectionOptions,
+  minFaceSize,
+} from 'react-native-vision-camera-face-detector';
 import React, {useState, useRef, useEffect} from 'react';
 import {
   Image,
@@ -21,13 +27,7 @@ import {
   useCameraPermission,
 } from 'react-native-vision-camera';
 import {request, PERMISSIONS} from 'react-native-permissions';
-
-import {
-  Face,
-  Camera,
-  FaceDetectionOptions,
-  minFaceSize,
-} from 'react-native-vision-camera-face-detector';
+import RNFS from 'react-native-fs';
 import axios from 'axios';
 import NavigationService from '../../Services/Navigation';
 import {useDispatch} from 'react-redux';
@@ -42,9 +42,9 @@ const FaceRecognition = () => {
   const [autoScale, setAutoScale] = useState(true);
   const [image, setImage] = useState(null);
   const device = useCameraDevice('front');
-  // const cameraRef = useRef < Camera > null;
   const cameraRef = useRef(null);
-  // const camera = useRef < VisionCamera > null;
+  const [isFaceCaptured, setIsFaceCaptured] = useState(false);
+
   useEffect(() => {
     checkCameraPermission();
     requestPermission();
@@ -148,49 +148,52 @@ const FaceRecognition = () => {
       return;
     }
 
-    setIsRecognizing(true);
+    const filePath = image.startsWith('file://') ? image : 'file://' + image;
 
-    if (image) {
+    try {
+      const fileExists = await RNFS.exists(filePath);
+
+      if (!fileExists) {
+        console.log('File does not exist at path: ', filePath);
+        return;
+      }
+
+      setIsRecognizing(true);
+
       const formData = new FormData();
       formData.append('image', {
-        uri: 'file://' + image.path,
+        uri: filePath,
         type: 'image/jpeg', // or 'image/png'
         name: 'photo.jpg', // or another appropriate name
       });
 
-      axios
-        .post('http://68.183.95.204:5690/match-face', formData, {
+      const res = await axios.post(
+        'http://68.183.95.204:5690/match-face',
+        formData,
+        {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
-        })
-        .then(res => {
-          console.log('The response is ', JSON.stringify(res));
-          dispatch({});
-          NavigationService.navigate('Home');
-        })
-        .catch(err => {
-          console.log('The error is ', err);
-        })
-        .finally(() => {
-          setImage(null);
-        });
-    } else {
-      console.log('No image to upload');
-      setImage(null);
+        },
+      );
+
+      console.log('The response is ', JSON.stringify(res));
+      dispatch(setUser(res));
+      NavigationService.navigate('Home');
+    } catch (err) {
+      console.log('The error is ', err);
+    } finally {
+      setIsRecognizing(false);
+      NavigationService.navigate('PreviewImage', {image: image});
     }
   };
 
-  const faceDetectionOptions =
-    useRef <
-    FaceDetectionOptions >
-    {
-      performanceMode: 'accurate',
-      classificationMode: 'all',
-    }.current;
+  const faceDetectionOptions = useRef({
+    performanceMode: 'accurate',
+    classificationMode: 'all',
+  }).current;
 
   function handleFacesDetected(faces, frame) {
-    // console.log('faces', faces[0], 'frame', frame.toString());
     if (Object.keys(faces).length <= 0) {
       setFace(false);
       return;
@@ -199,41 +202,32 @@ const FaceRecognition = () => {
     setFace(true);
 
     const {bounds} = faces[0];
-    const {width, height, x, y, pitchAngle, rollAngle, yawAngle} = bounds;
+    const {width, height, x, y, rollAngle} = bounds;
     aFaceW.value = width;
     aFaceH.value = height;
     aFaceX.value = x;
     aFaceY.value = y;
     aFaceRotation.value = rollAngle;
 
-    // console.log('Camera ---> current ---> ', JSON.stringify(cameraRef.current));
-
-    if (cameraRef.current && faces.length > 0) {
-      // take photo, capture video, etc...
-      // console.log('Camera ---> current ---> ', cameraRef.current);
+    if (cameraRef.current && faces.length > 0 && !isFaceCaptured) {
       captureImage();
     }
   }
 
-  console.log('Image :::: ', image);
-
   const captureImage = async () => {
-    {
-      image === null
-        ? cameraRef.current
-            .takePhoto({
-              quality: 0.5,
-              base64: true,
-              skipProcessing: true,
-            })
-            .then(data => {
-              console.log('Data : ', data);
-              setImage(data.path);
-            })
-            .catch(error => {
-              console.log('Error : ', error);
-            })
-        : null;
+    if (isFaceCaptured) return;
+
+    try {
+      const photo = await cameraRef.current.takePhoto({
+        quality: 0.5,
+        base64: true,
+        skipProcessing: true,
+      });
+      console.log('Data : ', photo);
+      setImage(photo.path);
+      setIsFaceCaptured(true);
+    } catch (error) {
+      console.log('Error : ', error);
     }
   };
 
@@ -267,7 +261,6 @@ const FaceRecognition = () => {
     }),
     // transform: [{rotate: `${aFaceRotation.value}deg`}], // Apply rotation
   }));
-
   return (
     <Container style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#3e3e42" />
