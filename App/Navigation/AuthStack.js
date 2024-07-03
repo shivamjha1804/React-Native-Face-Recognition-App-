@@ -5,6 +5,7 @@ import SignIn from '../Screens/Auth/SignIn';
 import Register from '../Screens/Auth/Register';
 import FaceRecognation from '../Screens/Auth/FaceRecognation';
 import UploadImage from '../Screens/Auth/UploadImage';
+import NewUser from '../Screens/Auth/NewUser';
 
 const Stack = createStackNavigator();
 
@@ -19,6 +20,7 @@ const AuthStack = () => {
       <Stack.Screen name="Register" component={Register} />
       <Stack.Screen name="FaceRecognation" component={FaceRecognation} />
       <Stack.Screen name="UploadImage" component={UploadImage} />
+      <Stack.Screen name="NewUser" component={NewUser} />
     </Stack.Navigator>
   );
 };
