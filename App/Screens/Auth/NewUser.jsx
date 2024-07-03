@@ -154,6 +154,7 @@ const NewUser = () => {
         skipProcessing: true,
       })
       .then(data => {
+        console.log('Data :::::: ', data);
         setImage(data);
         setActive(false);
         setOpenCamera(false);
