@@ -202,8 +202,8 @@ const FaceRecognition = () => {
     setFace(true);
 
     const {bounds, isLive} = faces[0];
-    console.log('Islive', isLive);
-    console.log('Bound  : ', faces[0]);
+    // console.log('Islive', isLive);
+    // console.log('Bound  : ', faces[0]);
 
     const {width, height, x, y, rollAngle} = bounds;
     aFaceW.value = width;
