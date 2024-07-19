@@ -13,6 +13,7 @@ import {
   Text,
   PermissionsAndroid,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -32,8 +33,11 @@ import axios from 'axios';
 import NavigationService from '../../Services/Navigation';
 import {useDispatch} from 'react-redux';
 import {setUser} from '../../Redux/reducer/User';
+import {useRoute} from '@react-navigation/native';
 
 const FaceRecognition = () => {
+  const route = useRoute(); // Use the hook to get route information
+  const {type} = route.params;
   const dispatch = useDispatch();
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [startRecognition, setStartRecognition] = useState(false);
@@ -41,6 +45,7 @@ const FaceRecognition = () => {
   const {hasPermission, requestPermission} = useCameraPermission();
   const [autoScale, setAutoScale] = useState(true);
   const [image, setImage] = useState(null);
+  const [location, setLocation] = useState(null); // State for storing location
   const device = useCameraDevice('front');
   const cameraRef = useRef(null);
   const [isFaceCaptured, setIsFaceCaptured] = useState(false);
@@ -51,7 +56,48 @@ const FaceRecognition = () => {
     readFilePermission();
     writeFilePermission();
     writePicturePermission();
+    checkLocationPermission();
+
+    return () => {
+      // Cleanup function to shut down the camera when the component unmounts
+      if (cameraRef.current) {
+        cameraRef.current.stop();
+      }
+    };
   }, []);
+  const checkLocationPermission = async () => {
+    console.log('Asking Permission');
+    try {
+      if (Platform.OS === 'ios') {
+        const auth = await Geolocation.requestAuthorization('whenInUse'); // request permission for ios
+        if (auth === 'granted') {
+          console.log('Location permission granted for iOS');
+          // Proceed with location access
+        }
+      } else {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'App Needs Location Permission',
+            message:
+              'This app needs access to your location for face recognition.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Location permission granted for Android');
+          // Proceed with location access
+        } else {
+          console.log('Location permission denied');
+          // Handle permission denial (e.g., show a message to the user)
+        }
+      }
+    } catch (err) {
+      console.log('Location error : ', err);
+    }
+  };
 
   const checkCameraPermission = async () => {
     try {
@@ -142,6 +188,47 @@ const FaceRecognition = () => {
     }
   };
 
+  const getLocation = () => {
+    Geolocation.requestAuthorization();
+    return new Promise((resolve, reject) => {
+      Geolocation.getCurrentPosition(
+        position => {
+          const {latitude, longitude} = position.coords;
+          resolve({latitude, longitude});
+        },
+        error => {
+          console.error('Geolocation error:', error);
+          reject(error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000,
+        },
+      );
+    });
+  };
+
+  
+
+  const getGeoLocationName = async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+      );
+      const data = await response.json();
+      return data.display_name;
+    } catch (error) {
+      console.error('Error fetching location name: ', error);
+      return null;
+    }
+  };
+
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toISOString();
+  };
+
   const handleRecognitionStart = async () => {
     if (!image) {
       console.log('No image to upload');
@@ -163,28 +250,53 @@ const FaceRecognition = () => {
       const formData = new FormData();
       formData.append('image', {
         uri: filePath,
-        type: 'image/jpeg', // or 'image/png'
-        name: 'photo.jpg', // or another appropriate name
+        type: 'image/jpeg',
+        name: 'photo.jpg',
       });
 
-      const res = await axios.post(
-        'http://68.183.95.204:5690/match-face',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        },
-      );
+      try {
+        const location = await getLocation();
+        console.log('Location : ', location);
+        formData.append('latitude', location.latitude);
+        formData.append('longitude', location.longitude);
 
-      console.log('The response is ', JSON.stringify(res));
-      dispatch(setUser(res));
-      NavigationService.navigate('Home');
+        const locationName = await getGeoLocationName(
+          location.latitude,
+          location.longitude,
+        );
+        formData.append('locationName', locationName);
+
+        const currentTime = getCurrentTime();
+        formData.append('time', currentTime);
+        formData.append('type', type);
+
+        console.log('FormData : ', formData);
+
+        const res = await axios.post(
+          'http://68.183.95.204:5690/match-face',
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          },
+        ).then((res) => {
+          
+                  console.log('The response is ', JSON.stringify(res));
+                  dispatch(setUser(res));
+
+        })
+
+        if (cameraRef.current) {
+          cameraRef.current.stop();
+        }
+        NavigationService.navigate('Status');
+      } catch (error) {
+        console.error('Location error:', error);
+        // Handle location error (e.g., show a message to the user)
+      }
     } catch (err) {
       console.log('The error is ', err);
-    } finally {
-      setIsRecognizing(false);
-      NavigationService.navigate('PreviewImage', {image: image});
     }
   };
 
@@ -226,7 +338,6 @@ const FaceRecognition = () => {
         base64: true,
         skipProcessing: true,
       });
-      console.log('Data : ', photo);
       setImage(photo.path);
       setIsFaceCaptured(true);
     } catch (error) {
@@ -264,6 +375,7 @@ const FaceRecognition = () => {
     }),
     // transform: [{rotate: `${aFaceRotation.value}deg`}], // Apply rotation
   }));
+
   return (
     <Container style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#3e3e42" />
