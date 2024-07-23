@@ -7,8 +7,13 @@ import {
   Icon,
 } from 'react-native-basic-elements';
 import NavigationService from '../../Services/Navigation';
+import axios from 'axios';
+import {MAIN_BASE_URL} from '../../Utils/EnvVariables';
+import {useSelector} from 'react-redux';
+import AuthService from '../../Services/Auth';
 
 const ChangePassword = () => {
+  const {userData} = useSelector(state => state.User);
   const [showOldPassword, setShowOldPassword] = useState(true);
   const [showNewPassword, setShowNewPassword] = useState(true);
   const [showConfirmPassword, setShowConfirmPassword] = useState(true);
@@ -30,10 +35,35 @@ const ChangePassword = () => {
     return true;
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (validate()) {
-      // Perform change password operation
-      console.log('Changing password with:', {oldPassword, newPassword});
+      const token = userData?.data.token;
+
+      await axios
+        .post(
+          `${MAIN_BASE_URL}/user/userchangepassword`,
+          {
+            email: userData.data.email,
+            password: oldPassword,
+            newPassword: newPassword,
+          },
+          {
+            headers: {
+              Authorization: token,
+              userType: 'User',
+            },
+          },
+        )
+        .then(res => {
+          if (res.status) {
+            AuthService.setAccount(res?.data);
+            AuthService.setToken(res?.data?.data?.token);
+            NavigationService.navigate('Profile');
+          }
+        })
+        .catch(err => {
+          setError(err.response?.data?.message || 'An error occurred');
+        });
     }
   };
 

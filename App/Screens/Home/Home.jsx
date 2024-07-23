@@ -10,9 +10,10 @@ import React, {useState} from 'react';
 import {Container, Icon} from 'react-native-basic-elements';
 import NavigationService from '../../Services/Navigation';
 import NavBar from '../../Components/NavBar/NavBar';
+import {useSelector} from 'react-redux';
 
 const Home = () => {
-  const [isLoggedIn, setLoggedIn] = useState(true);
+  const {userData} = useSelector(state => state.User);
   return (
     <Container style={styles.Screen}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -26,14 +27,23 @@ const Home = () => {
               <Icon
                 name="dot-fill"
                 type="Octicons"
-                color={isLoggedIn ? ' green' : 'red'}
+                color={
+                  userData?.data?.checkinStatus === 'checkedOut'
+                    ? 'red'
+                    : 'green'
+                }
               />
               <Text
                 style={{
                   ...styles.CardTitle,
-                  color: isLoggedIn ? 'green' : 'red',
+                  color:
+                    userData?.data?.checkinStatus === 'checkedOut'
+                      ? 'red'
+                      : 'green',
                 }}>
-                {isLoggedIn ? ' Logged In' : ' Logged Out'}
+                {userData?.data?.checkinStatus === 'checkedOut'
+                  ? 'Checked Out'
+                  : 'Checked In'}
               </Text>
             </View>
           </View>
@@ -42,7 +52,8 @@ const Home = () => {
               style={styles.CardItem}
               onPress={() =>
                 NavigationService.navigate('FaceRecognation', {type: 'login'})
-              }>
+              }
+              disabled={userData?.data?.checkinStatus === 'checkedIn'}>
               <Image
                 style={styles.CardImage}
                 source={require('../../Assets/Icons/enter.png')}
@@ -53,7 +64,14 @@ const Home = () => {
               onPress={() =>
                 NavigationService.navigate('FaceRecognation', {type: 'logout'})
               }
-              style={styles.CardItem}>
+              style={{
+                ...styles.CardItem,
+                backgroundColor:
+                  userData?.data?.checkinStatus === 'checkedOut'
+                    ? 'silver'
+                    : '#fff',
+              }}
+              disabled={userData?.data?.checkinStatus === 'checkedOut'}>
               <Image
                 style={styles.CardImage}
                 source={require('../../Assets/Icons/logout.png')}

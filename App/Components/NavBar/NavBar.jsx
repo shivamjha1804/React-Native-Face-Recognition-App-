@@ -1,19 +1,25 @@
 import {Image, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import React from 'react';
 import NavigationService from '../../Services/Navigation';
+import {useSelector} from 'react-redux';
 
 const NavBar = () => {
+  const {userData} = useSelector(state => state.User);
+
   return (
     <View style={styles.NavBar}>
-      <TouchableOpacity onPress={() => NavigationService.navigate('Home')}>
-        <Image
-          source={require('../../Assets/Logo/logo.png')}
-          style={styles.Logo}
-        />
-      </TouchableOpacity>
+      <Image
+        source={require('../../Assets/Logo/logo.png')}
+        style={styles.Logo}
+      />
       <TouchableOpacity onPress={() => NavigationService.navigate('Profile')}>
         <Image
-          source={require('../../Assets/User/user.png')}
+          source={
+            userData?.data?.profileimage == undefined ||
+            userData?.data?.profileimage == ''
+              ? require('../../Assets/User/user.png')
+              : {uri: userData?.data?.profileimage}
+          }
           style={styles.ProfileImage}
         />
       </TouchableOpacity>

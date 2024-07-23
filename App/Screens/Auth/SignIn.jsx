@@ -9,6 +9,9 @@ import {
 import NavigationService from '../../Services/Navigation';
 import {useDispatch} from 'react-redux';
 import {setUser} from '../../Redux/reducer/User';
+import axios from 'axios';
+import {MAIN_BASE_URL} from '../../Utils/EnvVariables';
+import AuthService from '../../Services/Auth';
 
 const SignIn = () => {
   const dispatch = useDispatch();
@@ -40,11 +43,24 @@ const SignIn = () => {
     return valid;
   };
 
-  const handleSignIn = () => {
+  console.log('Signin screen');
+
+  const handleSignIn = async () => {
     if (validate()) {
-      // Perform sign-in operation
-      dispatch(setUser({}));
-      console.log('Signing in with:', {email, password});
+      const data = {
+        email: email,
+        password: password,
+      };
+      await axios
+        .post(`${MAIN_BASE_URL}/user/login`, data)
+        .then(res => {
+          dispatch(setUser(res.data));
+          AuthService.setAccount(res?.data);
+          AuthService.setToken(res?.data?.data?.token);
+        })
+        .catch(error => {
+          console.log('Error while login : ', error);
+        });
     }
   };
 
@@ -153,7 +169,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     width: '90%',
-
   },
   Error: {
     color: 'red',

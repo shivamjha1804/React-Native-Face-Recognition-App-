@@ -31,12 +31,14 @@ import {request, PERMISSIONS} from 'react-native-permissions';
 import RNFS from 'react-native-fs';
 import axios from 'axios';
 import NavigationService from '../../Services/Navigation';
-import {useDispatch} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {setUser} from '../../Redux/reducer/User';
 import {useRoute} from '@react-navigation/native';
+import {MAIN_BASE_URL} from '../../Utils/EnvVariables';
 
 const FaceRecognition = () => {
-  const route = useRoute(); // Use the hook to get route information
+  const {userData} = useSelector(state => state.User);
+  const route = useRoute();
   const {type} = route.params;
   const dispatch = useDispatch();
   const [isRecognizing, setIsRecognizing] = useState(false);
@@ -45,7 +47,7 @@ const FaceRecognition = () => {
   const {hasPermission, requestPermission} = useCameraPermission();
   const [autoScale, setAutoScale] = useState(true);
   const [image, setImage] = useState(null);
-  const [location, setLocation] = useState(null); // State for storing location
+  const [location, setLocation] = useState(null);
   const device = useCameraDevice('front');
   const cameraRef = useRef(null);
   const [isFaceCaptured, setIsFaceCaptured] = useState(false);
@@ -59,7 +61,6 @@ const FaceRecognition = () => {
     checkLocationPermission();
 
     return () => {
-      // Cleanup function to shut down the camera when the component unmounts
       if (cameraRef.current) {
         cameraRef.current.stop();
       }
@@ -69,10 +70,9 @@ const FaceRecognition = () => {
     console.log('Asking Permission');
     try {
       if (Platform.OS === 'ios') {
-        const auth = await Geolocation.requestAuthorization('whenInUse'); // request permission for ios
+        const auth = await Geolocation.requestAuthorization('whenInUse');
         if (auth === 'granted') {
           console.log('Location permission granted for iOS');
-          // Proceed with location access
         }
       } else {
         const granted = await PermissionsAndroid.request(
@@ -88,10 +88,8 @@ const FaceRecognition = () => {
         );
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           console.log('Location permission granted for Android');
-          // Proceed with location access
         } else {
           console.log('Location permission denied');
-          // Handle permission denial (e.g., show a message to the user)
         }
       }
     } catch (err) {
@@ -188,28 +186,34 @@ const FaceRecognition = () => {
     }
   };
 
-  const getLocation = () => {
-    Geolocation.requestAuthorization();
+  const getLocation = (retries = 3) => {
     return new Promise((resolve, reject) => {
-      Geolocation.getCurrentPosition(
-        position => {
-          const {latitude, longitude} = position.coords;
-          resolve({latitude, longitude});
-        },
-        error => {
-          console.error('Geolocation error:', error);
-          reject(error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 10000,
-        },
-      );
+      const attempt = () => {
+        Geolocation.getCurrentPosition(
+          position => {
+            const {latitude, longitude} = position.coords;
+            resolve({latitude, longitude});
+          },
+          error => {
+            if (retries > 0) {
+              console.warn(`Retrying... ${retries} attempts left`);
+              setTimeout(() => attempt(), 1000);
+              retries -= 1;
+            } else {
+              console.error('Geolocation error:', error);
+              reject(error);
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 30000,
+            // maximumAge: 10000,
+          },
+        );
+      };
+      attempt();
     });
   };
-
-  
 
   const getGeoLocationName = async (latitude, longitude) => {
     try {
@@ -248,15 +252,10 @@ const FaceRecognition = () => {
       setIsRecognizing(true);
 
       const formData = new FormData();
-      formData.append('image', {
-        uri: filePath,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
-      });
+      formData.append('image', filePath);
 
       try {
         const location = await getLocation();
-        console.log('Location : ', location);
         formData.append('latitude', location.latitude);
         formData.append('longitude', location.longitude);
 
@@ -264,36 +263,34 @@ const FaceRecognition = () => {
           location.latitude,
           location.longitude,
         );
-        formData.append('locationName', locationName);
 
-        const currentTime = getCurrentTime();
-        formData.append('time', currentTime);
-        formData.append('type', type);
+        formData.append('loginLocationName', locationName.split(',')[0]);
 
-        console.log('FormData : ', formData);
+        console.log('FormData : ', JSON.stringify(formData));
 
-        const res = await axios.post(
-          'http://68.183.95.204:5690/match-face',
-          formData,
-          {
+        const endpoint =
+          type === 'login' ? '/user/match-face' : '/user/userlogout2';
+
+        const token = userData?.data.token;
+
+        await axios
+          .post(`${MAIN_BASE_URL}${endpoint}`, formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
+              Authorization: token,
+              userType: 'User',
             },
-          },
-        ).then((res) => {
-          
-                  console.log('The response is ', JSON.stringify(res));
-                  dispatch(setUser(res));
-
-        })
+          })
+          .then(res => {
+            console.log('The response is ', JSON.stringify(res));
+            NavigationService.navigate('Status', {response: res, type: type});
+          });
 
         if (cameraRef.current) {
           cameraRef.current.stop();
         }
-        NavigationService.navigate('Status');
       } catch (error) {
         console.error('Location error:', error);
-        // Handle location error (e.g., show a message to the user)
       }
     } catch (err) {
       console.log('The error is ', err);

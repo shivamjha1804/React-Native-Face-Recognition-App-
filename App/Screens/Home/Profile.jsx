@@ -2,11 +2,41 @@ import {Image, StyleSheet, Text, View} from 'react-native';
 import React from 'react';
 import {AppButton, Container, Icon} from 'react-native-basic-elements';
 import NavigationService from '../../Services/Navigation';
-import {useDispatch} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {logout} from '../../Redux/reducer/User';
+import axios from 'axios';
+import {MAIN_BASE_URL} from '../../Utils/EnvVariables';
 
 const Profile = () => {
   const dispatch = useDispatch();
+  const {userData} = useSelector(state => state.User);
+
+  const handleLogout = async () => {
+    const token = userData?.data?.token;
+    await axios
+      .post(
+        `${MAIN_BASE_URL}/user/userlogout`,
+        {
+          status: 'logout',
+        },
+        {
+          headers: {
+            Authorization: token,
+            userType: 'User',
+          },
+        },
+      )
+      .then(res => {
+        if (res.status) {
+          console.log('Response : ', res);
+          dispatch(logout());
+        }
+      })
+      .catch(err => {
+        console.log('Error from handleLogout : ', err);
+      });
+  };
+
   return (
     <Container style={styles.Screen}>
       <View style={styles.Header}>
@@ -23,7 +53,12 @@ const Profile = () => {
 
       <View style={styles.ProfileImageContainer}>
         <Image
-          source={require('../../Assets/User/user.png')}
+          source={
+            userData?.data?.profileimage == undefined ||
+            userData?.data?.profileimage == ''
+              ? require('../../Assets/User/user.png')
+              : {uri: userData?.data?.profileimage}
+          }
           style={styles.ProfileImage}
         />
       </View>
@@ -33,15 +68,15 @@ const Profile = () => {
           <Text style={styles.SectionTitle}>Details:</Text>
           <View style={styles.DetailRow}>
             <Text style={styles.NameTitle}>First Name:</Text>
-            <Text style={styles.Name}>John</Text>
+            <Text style={styles.Name}>{userData?.data?.firstName}</Text>
           </View>
           <View style={styles.DetailRow}>
             <Text style={styles.NameTitle}>Last Name:</Text>
-            <Text style={styles.Name}>Doe</Text>
+            <Text style={styles.Name}>{userData?.data?.lastName}</Text>
           </View>
           <View style={styles.DetailRow}>
             <Text style={styles.NameTitle}>Email:</Text>
-            <Text style={styles.Name}>john.doe@gmail.com</Text>
+            <Text style={styles.Name}>{userData?.data?.email}</Text>
           </View>
           <View style={styles.DetailRow}>
             <Text style={styles.NameTitle}>Change Password:</Text>
@@ -58,7 +93,7 @@ const Profile = () => {
         style={styles.LogoutButton}
         textStyle={styles.ButtonText}
         title="Log Out"
-        onPress={() => dispatch(logout())}
+        onPress={() => handleLogout()}
       />
     </Container>
   );

@@ -1,10 +1,33 @@
 import {StatusBar, StyleSheet, Text, View} from 'react-native';
-import React, {useState} from 'react';
+import Reac from 'react';
 import {Container, Icon} from 'react-native-basic-elements';
 import NavBar from '../../Components/NavBar/NavBar';
+import {useRoute} from '@react-navigation/native';
 
 const Status = () => {
-  const [isLoggedIn, setLoggedIn] = useState(true);
+  const route = useRoute();
+  const {response} = route.params;
+  const {type} = route.params;
+
+  console.log('Response : ', response);
+  console.log('type : ', type);
+
+  function formatDateAndTime(dateString) {
+    const date = new Date(dateString);
+
+    const options = {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    };
+
+    return date.toLocaleString('en-US', options).replace(',', '');
+  }
 
   return (
     <Container style={styles.Screen}>
@@ -19,15 +42,26 @@ const Status = () => {
               <Icon
                 name="dot-fill"
                 type="Octicons"
-                color={isLoggedIn ? 'green' : 'red'}
+                color={
+                  response?.data?.checkinStatus === 'checkedOut'
+                    ? 'red'
+                    : 'green'
+                }
                 style={styles.StatusIcon}
               />
               <Text
                 style={[
                   styles.CardTitle,
-                  {color: isLoggedIn ? 'green' : 'red'},
+                  {
+                    color:
+                      response?.data?.checkinStatus === 'checkedOut'
+                        ? 'red'
+                        : 'green',
+                  },
                 ]}>
-                {isLoggedIn ? ' Logged In' : ' Logged Out'}
+                {response?.data?.checkinStatus === 'checkedOut'
+                  ? 'Checked Out'
+                  : 'Checked In'}
               </Text>
             </View>
           </View>
@@ -35,15 +69,25 @@ const Status = () => {
           <View style={styles.CardBody}>
             <View style={styles.CardSection}>
               <Text style={styles.Title}>Name:</Text>
-              <Text style={styles.Text}>John Doe</Text>
+              <Text style={styles.Text}>
+                {response?.data?.firstName} {response?.data?.lastName}
+              </Text>
             </View>
             <View style={styles.CardSection}>
               <Text style={styles.Title}>Location:</Text>
-              <Text style={styles.Text}>New York</Text>
+              <Text style={styles.Text}>
+                {type == 'login'
+                  ? response?.data?.loginLocation
+                  : response?.data?.logoutLocation}
+              </Text>
             </View>
             <View style={styles.CardSection}>
-              <Text style={styles.Title}>Time:</Text>
-              <Text style={styles.Text}>12:00 PM</Text>
+              <Text style={styles.Title}>Date & Time:</Text>
+              <Text style={styles.Text}>
+                {type == 'login'
+                  ? formatDateAndTime(response?.data?.loginTime)
+                  : formatDateAndTime(response?.data?.logOutTime)}
+              </Text>
             </View>
           </View>
         </View>
