@@ -32,7 +32,6 @@ import RNFS from 'react-native-fs';
 import axios from 'axios';
 import NavigationService from '../../Services/Navigation';
 import {useDispatch, useSelector} from 'react-redux';
-import {setUser} from '../../Redux/reducer/User';
 import {useRoute} from '@react-navigation/native';
 import {MAIN_BASE_URL} from '../../Utils/EnvVariables';
 
@@ -59,12 +58,6 @@ const FaceRecognition = () => {
     writeFilePermission();
     writePicturePermission();
     checkLocationPermission();
-
-    return () => {
-      if (cameraRef.current) {
-        cameraRef.current.stop();
-      }
-    };
   }, []);
   const checkLocationPermission = async () => {
     console.log('Asking Permission');
@@ -252,7 +245,11 @@ const FaceRecognition = () => {
       setIsRecognizing(true);
 
       const formData = new FormData();
-      formData.append('image', filePath);
+      formData.append('image', {
+        uri: filePath,
+        type: 'image/jpeg',
+        name: 'image.jpg',
+      });
 
       try {
         const location = await getLocation();
@@ -264,7 +261,11 @@ const FaceRecognition = () => {
           location.longitude,
         );
 
-        formData.append('loginLocationName', locationName.split(',')[0]);
+        {
+          type === 'login' 
+          ? (formData.append('loginLocationName', locationName.split(',')[0]))
+          : (formData.append('logoutlocationName', locationName.split(',')[0]))
+        }
 
         console.log('FormData : ', JSON.stringify(formData));
 
@@ -282,18 +283,16 @@ const FaceRecognition = () => {
             },
           })
           .then(res => {
-            console.log('The response is ', JSON.stringify(res));
-            NavigationService.navigate('Status', {response: res, type: type});
+            console.log('The response is ', JSON.stringify(res.data));
+            NavigationService.replace('Status', {response: res, type: type});
           });
-
-        if (cameraRef.current) {
-          cameraRef.current.stop();
-        }
       } catch (error) {
-        console.error('Location error:', error);
+        console.error(error.response.data);
+        setIsRecognizing(false);
       }
     } catch (err) {
       console.log('The error is ', err);
+      setIsRecognizing(false);
     }
   };
 

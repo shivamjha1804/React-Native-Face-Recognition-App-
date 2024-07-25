@@ -6,14 +6,57 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import React, {useState} from 'react';
+import React, {useState, useCallback} from 'react';
 import {Container, Icon} from 'react-native-basic-elements';
 import NavigationService from '../../Services/Navigation';
 import NavBar from '../../Components/NavBar/NavBar';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
+import axios from 'axios';
+import {MAIN_BASE_URL} from '../../Utils/EnvVariables';
+import {setUser} from '../../Redux/reducer/User';
+import AuthService from '../../Services/Auth';
+import {useFocusEffect} from '@react-navigation/native';
 
 const Home = () => {
   const {userData} = useSelector(state => state.User);
+  const dispatch = useDispatch();
+  const [ownData, setOwnData] = useState([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const token = userData?.data?.token;
+      const fetchOwnDetail = async () => {
+        try {
+          axios
+            .get(`${MAIN_BASE_URL}/user/userowninfo`, {
+              headers: {
+                Authorization: token,
+                userType: 'User',
+              },
+            })
+            .then(res => {
+              dispatch(setUser(res?.data));
+              console.log('Res data : ', JSON.stringify(res.data));
+              setOwnData(res.data);
+              AuthService.setToken(res?.data?.data?.token);
+              AuthService.setAccount(res?.data);
+            })
+            .catch(error => {
+              console.log('Error from fetchOwnDetail of user : ', error);
+            });
+        } catch (error) {
+          console.log('Error from fetchOwnDetail : ', error);
+        }
+      };
+
+      fetchOwnDetail();
+
+      return () => {
+        // Cleanup if necessary
+      };
+    }, [userData, dispatch]),
+  );
+
   return (
     <Container style={styles.Screen}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -28,7 +71,7 @@ const Home = () => {
                 name="dot-fill"
                 type="Octicons"
                 color={
-                  userData?.data?.checkinStatus === 'checkedOut'
+                  ownData?.data?.checkinStatus === 'checkedOut'
                     ? 'red'
                     : 'green'
                 }
@@ -37,11 +80,11 @@ const Home = () => {
                 style={{
                   ...styles.CardTitle,
                   color:
-                    userData?.data?.checkinStatus === 'checkedOut'
+                    ownData?.data?.checkinStatus === 'checkedOut'
                       ? 'red'
                       : 'green',
                 }}>
-                {userData?.data?.checkinStatus === 'checkedOut'
+                {ownData?.data?.checkinStatus === 'checkedOut'
                   ? 'Checked Out'
                   : 'Checked In'}
               </Text>
@@ -49,11 +92,17 @@ const Home = () => {
           </View>
           <View style={styles.CardBody}>
             <TouchableOpacity
-              style={styles.CardItem}
+              style={{
+                ...styles.CardItem,
+                backgroundColor:
+                  ownData?.data?.checkinStatus === 'checkedIn'
+                    ? 'silver'
+                    : '#fff',
+              }}
               onPress={() =>
                 NavigationService.navigate('FaceRecognation', {type: 'login'})
               }
-              disabled={userData?.data?.checkinStatus === 'checkedIn'}>
+              disabled={ownData?.data?.checkinStatus === 'checkedIn'}>
               <Image
                 style={styles.CardImage}
                 source={require('../../Assets/Icons/enter.png')}
@@ -67,11 +116,11 @@ const Home = () => {
               style={{
                 ...styles.CardItem,
                 backgroundColor:
-                  userData?.data?.checkinStatus === 'checkedOut'
+                  ownData?.data?.checkinStatus === 'checkedOut'
                     ? 'silver'
                     : '#fff',
               }}
-              disabled={userData?.data?.checkinStatus === 'checkedOut'}>
+              disabled={ownData?.data?.checkinStatus === 'checkedOut'}>
               <Image
                 style={styles.CardImage}
                 source={require('../../Assets/Icons/logout.png')}

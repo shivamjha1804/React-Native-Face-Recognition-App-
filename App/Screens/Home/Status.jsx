@@ -1,15 +1,20 @@
 import {StatusBar, StyleSheet, Text, View} from 'react-native';
-import Reac from 'react';
+import Reac, {useEffect} from 'react';
 import {Container, Icon} from 'react-native-basic-elements';
 import NavBar from '../../Components/NavBar/NavBar';
 import {useRoute} from '@react-navigation/native';
+import {useDispatch, useSelector} from 'react-redux';
+import axios from 'axios';
+import {MAIN_BASE_URL} from '../../Utils/EnvVariables';
 
 const Status = () => {
   const route = useRoute();
+  const {userData} = useSelector(state => state.User);
   const {response} = route.params;
+  const dispatch = useDispatch();
   const {type} = route.params;
 
-  console.log('Response : ', response);
+  console.log('Response : ', JSON.stringify(response.data.data));
   console.log('type : ', type);
 
   function formatDateAndTime(dateString) {
@@ -29,6 +34,34 @@ const Status = () => {
     return date.toLocaleString('en-US', options).replace(',', '');
   }
 
+  useEffect(() => {
+    const token = userData?.data?.token;
+    const fetchOwnDetail = async () => {
+      try {
+        axios
+          .get(`${MAIN_BASE_URL}/user/userowninfo`, {
+            headers: {
+              Authorization: token,
+              userType: 'User',
+            },
+          })
+          .then(res => {
+            dispatch(setUser(res?.data));
+            console.log('Res data : ', JSON.stringify(res.data));
+            AuthService.setToken(res?.data?.data?.token);
+            AuthService.setAccount(res?.data);
+          })
+          .catch(error => {
+            console.log('Error from fetchOwnDetail of user : ', error);
+          });
+      } catch (error) {
+        console.log('Error from fetchOwnDetail : ', error);
+      }
+    };
+
+    fetchOwnDetail();
+  }, []);
+
   return (
     <Container style={styles.Screen}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -43,7 +76,7 @@ const Status = () => {
                 name="dot-fill"
                 type="Octicons"
                 color={
-                  response?.data?.checkinStatus === 'checkedOut'
+                  response?.data?.data?.user?.checkinStatus === 'checkedOut'
                     ? 'red'
                     : 'green'
                 }
@@ -54,12 +87,12 @@ const Status = () => {
                   styles.CardTitle,
                   {
                     color:
-                      response?.data?.checkinStatus === 'checkedOut'
+                      response?.data?.data?.user?.checkinStatus === 'checkedOut'
                         ? 'red'
                         : 'green',
                   },
                 ]}>
-                {response?.data?.checkinStatus === 'checkedOut'
+                {response?.data?.data?.user?.checkinStatus === 'checkedOut'
                   ? 'Checked Out'
                   : 'Checked In'}
               </Text>
@@ -70,23 +103,24 @@ const Status = () => {
             <View style={styles.CardSection}>
               <Text style={styles.Title}>Name:</Text>
               <Text style={styles.Text}>
-                {response?.data?.firstName} {response?.data?.lastName}
+                {response?.data?.data?.user?.firstName}{' '}
+                {response?.data?.data?.user?.lastName}
               </Text>
             </View>
             <View style={styles.CardSection}>
               <Text style={styles.Title}>Location:</Text>
               <Text style={styles.Text}>
                 {type == 'login'
-                  ? response?.data?.loginLocation
-                  : response?.data?.logoutLocation}
+                  ? response?.data?.data?.latestLoginLocationName
+                  : response?.data?.data?.latestLogoutLocationName}
               </Text>
             </View>
             <View style={styles.CardSection}>
               <Text style={styles.Title}>Date & Time:</Text>
               <Text style={styles.Text}>
                 {type == 'login'
-                  ? formatDateAndTime(response?.data?.loginTime)
-                  : formatDateAndTime(response?.data?.logOutTime)}
+                  ? formatDateAndTime(response?.data?.data?.latestLoginTime)
+                  : formatDateAndTime(response?.data?.data?.latestLogoutTime)}
               </Text>
             </View>
           </View>

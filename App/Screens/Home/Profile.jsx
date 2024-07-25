@@ -14,18 +14,12 @@ const Profile = () => {
   const handleLogout = async () => {
     const token = userData?.data?.token;
     await axios
-      .post(
-        `${MAIN_BASE_URL}/user/userlogout`,
-        {
-          status: 'logout',
+      .get(`${MAIN_BASE_URL}/user/userlogout`, {
+        headers: {
+          Authorization: token,
+          userType: 'User',
         },
-        {
-          headers: {
-            Authorization: token,
-            userType: 'User',
-          },
-        },
-      )
+      })
       .then(res => {
         if (res.status) {
           console.log('Response : ', res);
