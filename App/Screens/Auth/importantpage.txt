@@ -248,7 +248,7 @@ class VisionCameraFaceDetectorPlugin(
     params: Map<String, Any>?
   ): Any {
     val result = ArrayList<Map<String, Any>>()
-    
+
     try {
       val rotation = getFrameRotation(frame.orientation)
       val image = InputImage.fromMediaImage(frame.image, rotation)
@@ -289,12 +289,8 @@ class VisionCameraFaceDetectorPlugin(
 
           if (leftEyeOpenProbability != -1.0 && rightEyeOpenProbability != -1.0) {
             if (previousLeftEyeOpenProbability != -1.0 && previousRightEyeOpenProbability != -1.0) {
-              if (previousLeftEyeOpenProbability > 0.5 && leftEyeOpenProbability < 0.5 &&
-                  previousRightEyeOpenProbability > 0.5 && rightEyeOpenProbability < 0.5) {
-                map["isLive"] = true
-              } else {
-                map["isLive"] = false
-              }
+              map["isLive"] = (previousLeftEyeOpenProbability > 0.5 && leftEyeOpenProbability < 0.5) ||
+                      (previousRightEyeOpenProbability > 0.5 && rightEyeOpenProbability < 0.5)
             }
             previousLeftEyeOpenProbability = leftEyeOpenProbability
             previousRightEyeOpenProbability = rightEyeOpenProbability
